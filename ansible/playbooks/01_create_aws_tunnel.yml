@@ -1,0 +1,65 @@
+---
+- name: Create the AWS IPsec tunnel on the HQ Sophos firewall
+  hosts: sophos
+  gather_facts: false
+
+  vars:
+    aws_tunnel_number: 1
+    tunnel_name: "AWS-VPN-{{ aws_tunnel_number }}"
+    tunnel_address: "{{ aws['tunnel' ~ aws_tunnel_number ~ '_address'].value }}"
+    tunnel_psk: "{{ aws['tunnel' ~ aws_tunnel_number ~ '_preshared_key'].value }}"
+    ipsec_profile: "IKEv2"
+    hide_secrets: true
+
+  pre_tasks:
+    - name: Load the Terraform outputs
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../vars/aws_vpn.json"
+        name: aws
+
+    - name: Load local settings
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../vars/local.yml"
+
+    - name: Stop early if a required value is missing
+      ansible.builtin.assert:
+        that:
+          - "(aws.get('tunnel' ~ aws_tunnel_number ~ '_address', {}).get('value') or '') | length > 0"
+          - "(aws.get('tunnel' ~ aws_tunnel_number ~ '_preshared_key', {}).get('value') or '') | length > 0"
+          - sophos_wan_ip is defined
+          - wan_interface is defined
+        fail_msg: "Missing a Terraform output or a local setting. Is the AWS VPN applied?"
+
+  tasks:
+    - name: Look for an existing connection with this name (read only)
+      sophos.sophos_firewall.sfos_ipsec_connection:
+        name: "{{ tunnel_name }}"
+        state: query
+      register: existing
+
+    - name: Create the tunnel-interface connection
+      sophos.sophos_firewall.sfos_ipsec_connection:
+        name: "{{ tunnel_name }}"
+        state: present
+        description: "AWS Site-to-Site VPN tunnel {{ aws_tunnel_number }} (managed by Ansible)"
+        connection_type: TunnelInterface
+        gateway_type: Initiate
+        profile: "{{ ipsec_profile }}"
+        authentication_type: PresharedKey
+        preshared_key: "{{ tunnel_psk }}"
+        listening_interface: "{{ wan_interface }}"
+        gateway_address: "{{ tunnel_address }}"
+        local_id_type: "IP Address"
+        local_id: "{{ sophos_wan_ip }}"
+        remote_id_type: "IP Address"
+        remote_id: "{{ tunnel_address }}"
+        allow_nat_traversal: Disable
+      when: existing.api_response.Response.IPSecConnection is not defined
+      no_log: "{{ hide_secrets }}"
+
+    - name: Activate and start the connection
+      sophos.sophos_firewall.sfos_ipsec_connection:
+        name: "{{ tunnel_name }}"
+        state: updated
+        active: true
+        connection: true

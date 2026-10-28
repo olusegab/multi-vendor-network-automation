@@ -1,0 +1,2 @@
+sophos_wan_ip: "203.0.113.10"   # your firewall's public IP (example value)
+wan_interface: "Port4"          # WAN port name as the Sophos shows it

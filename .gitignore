@@ -9,3 +9,7 @@ ansible/inventory/hosts.yml
 ansible/inventory/group_vars/*/vault.yml
 .vault_pass
 *.retry
+
+
+ansible/vars/local.yml
+ansible/vars/aws_vpn.json
