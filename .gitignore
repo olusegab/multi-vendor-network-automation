@@ -3,3 +3,9 @@
 *.tfstate.*
 terraform.tfvars
 .env
+
+# Ansible
+ansible/inventory/hosts.yml
+ansible/inventory/group_vars/*/vault.yml
+.vault_pass
+*.retry

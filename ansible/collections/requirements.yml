@@ -1,0 +1,3 @@
+collections:
+  - name: sophos.sophos_firewall
+  - name: ansible.netcommon

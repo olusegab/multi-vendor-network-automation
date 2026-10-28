@@ -1,0 +1,7 @@
+ansible_connection: httpapi
+ansible_network_os: sophos.sophos_firewall.sfos
+ansible_httpapi_use_ssl: true
+ansible_httpapi_port: 4444
+ansible_httpapi_validate_certs: false   # lab only: self-signed certificate
+ansible_user: olusegun.abayomi               # dedicated API account
+ansible_httpapi_pass: "{{ vault_sophos_password }}"

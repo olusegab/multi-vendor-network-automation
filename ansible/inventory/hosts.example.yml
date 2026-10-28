@@ -1,0 +1,6 @@
+all:
+  children:
+    sophos:
+      hosts:
+        hq-sophos:
+          ansible_host: 192.168.1.1   # replace with your firewall's LAN IP
