@@ -22,6 +22,7 @@ AWS gets **one** Site-to-Site VPN, to the HQ Sophos firewall. Stores already tun
 | AWS VPC, subnet, internet gateway, route tables (Terraform) | Done |
 | Site-to-Site VPN to HQ with pinned IPsec parameters (Terraform) | Done |
 | Architecture diagram and documentation | Done |
+|Ansible setup and Sophos API connection test | Done |
 | EC2 instance and security group module | Planned |
 | Sophos configuration through the XML API (Python and Ansible) | Planned |
 | MikroTik store configuration (Ansible, RouterOS API or SSH) | Planned |
