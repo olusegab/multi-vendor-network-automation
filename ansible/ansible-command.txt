@@ -1,0 +1,5 @@
+ansible-playbook playbooks/01_create_aws_tunnel.yml --ask-vault-pass --check
+ansible-playbook playbooks/01_create_aws_tunnel.yml --ask-vault-pass
+source ~/venvs/netauto/bin/activate
+which ansible
+ansible-playbook playbooks/01_create_aws_tunnel.yml --ask-vault-pass -e hide_secrets=false

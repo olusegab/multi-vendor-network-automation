@@ -5,7 +5,7 @@
 
   vars:
     aws_tunnel_number: 1
-    tunnel_name: "AWS-VPN-{{ aws_tunnel_number }}"
+    tunnel_name: "AWS_VPN_{{ aws_tunnel_number }}"
     tunnel_address: "{{ aws['tunnel' ~ aws_tunnel_number ~ '_address'].value }}"
     tunnel_psk: "{{ aws['tunnel' ~ aws_tunnel_number ~ '_preshared_key'].value }}"
     ipsec_profile: "IKEv2"
