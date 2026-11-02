@@ -11,3 +11,26 @@ ansible-playbook playbooks/02_create_aws_tunnel.yml --syntax-check
 ansible-playbook playbooks/02_create_aws_tunnel.yml --list-tasks
 
 ansible-vault view inventory/group_vars/sophos/vault.yml  # you can use "create" argument to creat the password, "edit" to edit the password, and "view" to view the password
+
+ansible-vault create inventory/group_vars/mikrotik/vault.yml
+
+/user group add name=ansible-rw policy=ssh,read,write,!local,!telnet,!ftp,!reboot,!policy,!test,!winbox,!password,!web,!sniff,!sensitive,!romon,!api
+/user set ansible group=ansible-rw
+
+
+/ip ipsec policy add src-address=192.168.155.0/24 dst-address=10.50.0.0/16 \
+    sa-src-address=<saka-wan> sa-dst-address=<hq-public> \
+    tunnel=yes proposal=proposal_Saka peer=peer_Saka
+/ip firewall nat add chain=srcnat action=accept src-address=192.168.155.0/24 \
+    dst-address=10.50.0.0/16 place-before=<index of the first masquerade>
+
+/ip firewall filter add chain=input protocol=tcp dst-port=22 src-address=<HQ-public-IP> action=accept comment="SSH from HQ only" place-before=0
+/ip service set ssh address=<HQ-public-IP>/32
+
+
+/user group add name=ansible-ro policy=ssh,read,api,!local,!telnet,!ftp,!reboot,!write,!policy,!test,!winbox,!password,!web,!sniff,!sensitive,!romon
+/user add name=ansible group=ansible-ro address=<VM-IP>/32 password=<strong-password>
+
+
+pip install -r requirements.txt
+ansible-galaxy collection install -r collections/requirements.yml

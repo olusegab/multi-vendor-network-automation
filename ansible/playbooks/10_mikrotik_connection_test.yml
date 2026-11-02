@@ -1,0 +1,17 @@
+---
+- name: Test Ansible connection to MikroTik
+  hosts: apo-mikrotik
+  gather_facts: false
+
+  tasks:
+    - name: Read router identity and resources
+      community.routeros.command:
+        commands:
+          - /system identity print
+          - /system resource print
+      register: result
+      changed_when: false
+
+    - name: Show the output
+      ansible.builtin.debug:
+        var: result.stdout_lines
