@@ -1,0 +1,13 @@
+ansible-playbook playbooks/01_create_aws_tunnel.yml --ask-vault-pass --check
+ansible-playbook playbooks/01_create_aws_tunnel.yml --ask-vault-pass
+source ~/venvs/netauto/bin/activate
+which ansible
+ansible-playbook playbooks/01_create_aws_tunnel.yml --ask-vault-pass -e hide_secrets=false
+ansible-galaxy collection install amazon.aws
+pip install boto3 botocore
+aws configure
+
+ansible-playbook playbooks/02_create_aws_tunnel.yml --syntax-check
+ansible-playbook playbooks/02_create_aws_tunnel.yml --list-tasks
+
+ansible-vault view inventory/group_vars/sophos/vault.yml  # you can use "create" argument to creat the password, "edit" to edit the password, and "view" to view the password

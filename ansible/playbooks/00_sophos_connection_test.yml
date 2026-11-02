@@ -1,0 +1,14 @@
+---
+- name: Read-only check of the Sophos API connection
+  hosts: sophos
+  gather_facts: false
+  tasks:
+    - name: Query the built-in LAN zone (read only)
+      sophos.sophos_firewall.sfos_zone:
+        name: LAN
+        state: query
+      register: zone_result
+
+    - name: Show the result
+      ansible.builtin.debug:
+        var: zone_result

@@ -1,0 +1,3 @@
+ansible-core
+ansible-lint
+sophosfirewall-python>=0.1.68
