@@ -1,0 +1,32 @@
+{
+  "tunnel1_address": {
+    "sensitive": false,
+    "type": "string",
+    "value": "34.205.220.138"
+  },
+  "tunnel1_cgw_inside_address": {
+    "sensitive": false,
+    "type": "string",
+    "value": "169.254.32.42"
+  },
+  "tunnel1_preshared_key": {
+    "sensitive": true,
+    "type": "string",
+    "value": "YK1wtkh2FZdcl57cAJjLQRn89wpqhlQU"
+  },
+  "tunnel1_vgw_inside_address": {
+    "sensitive": false,
+    "type": "string",
+    "value": "169.254.32.41"
+  },
+  "tunnel2_address": {
+    "sensitive": false,
+    "type": "string",
+    "value": "52.71.247.67"
+  },
+  "vpn_connection_id": {
+    "sensitive": false,
+    "type": "string",
+    "value": "vpn-0751c9d67ac1f907a"
+  }
+}

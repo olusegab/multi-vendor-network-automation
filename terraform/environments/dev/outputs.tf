@@ -18,3 +18,7 @@ output "tunnel1_cgw_inside_address" {
 output "tunnel1_vgw_inside_address" {
   value = aws_vpn_connection.hq.tunnel1_vgw_inside_address
 }
+
+output "vpn_connection_id" {
+  value = aws_vpn_connection.hq.id
+}

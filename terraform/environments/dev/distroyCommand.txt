@@ -1,0 +1,7 @@
+terraform plan -destroy -target=aws_vpn_connection.hq -target=aws_vpn_gateway.main
+terraform destroy -target=aws_vpn_connection.hq -target=aws_vpn_gateway.main
+terraform state list
+terraform apply
+terraform output -json > aws_vpn.json
+scp aws_vpn.json yomiubuntu@<VM-IP>:~/multi-vendor-network-automation/ansible/vars/
+scp aws_vpn.json yomiubuntu@172.16.0.243:multi-vendor-network-automation/ansible/vars/
