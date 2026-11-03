@@ -1,0 +1,89 @@
+---
+- name: Create the Apo store IPsec tunnel on the HQ Sophos firewall
+  hosts: sophos
+  gather_facts: false
+
+  vars:
+    tunnel_name: "APO_STORE"
+    ipsec_profile: "{{ sophos_ipsec_profile | default('IKEv2') }}"
+    hide_secrets: true
+
+  pre_tasks:
+    - name: Load local settings
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../vars/local.yml"
+
+    - name: Stop early if a required value is missing
+      ansible.builtin.assert:
+        that:
+          - sophos_wan_ip is defined
+          - wan_interface is defined
+          - apo_wan_ip is defined
+          - apo_lan_object is defined
+          - hq_objects is defined
+          - hq_objects | length > 0
+          - network_objects is defined
+          - vault_apo_psk is defined
+          - vault_apo_psk | length >= 24
+        fail_msg: "Missing a local setting or the vault key (vault_apo_psk)."
+
+  tasks:
+    - name: Create network objects for the Apo LAN and HQ networks
+      sophos.sophos_firewall.sfos_ip_host:
+        name: "{{ item.name }}"
+        state: present
+        host_type: network
+        network: "{{ item.ip }}"
+        mask: "{{ item.mask }}"
+      loop: "{{ network_objects }}"
+
+    - name: Create the site-to-site connection
+      sophos.sophos_firewall.sfos_ipsec_connection:
+        name: "{{ tunnel_name }}"
+        state: present
+        description: "Apo store tunnel (managed by Ansible)"
+        connection_type: SiteToSite
+        gateway_type: Initiate
+        profile: "{{ ipsec_profile }}"
+        authentication_type: PresharedKey
+        preshared_key: "{{ vault_apo_psk }}"
+        listening_interface: "{{ wan_interface }}"
+        gateway_address: "{{ apo_wan_ip }}"
+        local_id_type: "IP Address"
+        local_id: "{{ sophos_wan_ip }}"
+        remote_id_type: "IP Address"
+        remote_id: "{{ apo_wan_ip }}"
+        local_subnet: "{{ hq_objects }}"
+        remote_subnet:
+          - "{{ apo_lan_object }}"
+        allow_nat_traversal: Disable
+      register: created
+      no_log: "{{ hide_secrets }}"
+
+    - name: Make sure the gateway type is Initiate
+      sophos.sophos_firewall.sfos_ipsec_connection:
+        name: "{{ tunnel_name }}"
+        state: updated
+        gateway_type: Initiate
+      register: gw_update
+
+    - name: Activate the connection
+      sophos.sophos_firewall.sfos_ipsec_connection:
+        name: "{{ tunnel_name }}"
+        state: updated
+        active: true
+      when: created is changed or gw_update is changed
+
+    # The module crashes while reading the reply to "connection: true"
+    # (TypeError at line 976, collection 2.5.2). The request is sent before
+    # the crash, so we tolerate exactly this error and fail on any other.
+    - name: Establish the connection
+      sophos.sophos_firewall.sfos_ipsec_connection:
+        name: "{{ tunnel_name }}"
+        state: updated
+        connection: true
+      register: establish
+      when: created is changed or gw_update is changed
+      failed_when:
+        - establish.failed | default(false)
+        - "'string indices must be integers' not in (establish.module_stderr | default(''))"

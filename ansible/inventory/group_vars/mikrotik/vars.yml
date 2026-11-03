@@ -3,3 +3,4 @@ ansible_network_os: community.routeros.routeros
 ansible_user: "ansible+cet"
 ansible_password: "{{ vault_mikrotik_password }}"
 ansible_network_cli_ssh_type: paramiko
+ansible_command_timeout: 120

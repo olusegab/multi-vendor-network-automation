@@ -1,0 +1,145 @@
+---
+- name: Build the Apo store IPsec tunnel to HQ on the MikroTik
+  hosts: apo-mikrotik
+  gather_facts: false
+
+  vars:
+    hide_secrets: true
+    ike_profile: profile_Apo
+    ipsec_proposal: proposal_Apo
+    ipsec_peer: peer_HQ
+    remote_networks: "{{ hq_networks + [aws_vpc_cidr] }}"
+
+  pre_tasks:
+    - name: Load local settings
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../vars/local.yml"
+
+    - name: Stop early if a required value is missing
+      ansible.builtin.assert:
+        that:
+          - sophos_wan_ip is defined
+          - apo_wan_ip is defined
+          - apo_lan is defined
+          - hq_networks is defined
+          - aws_vpc_cidr is defined
+          - vault_apo_psk is defined
+          - vault_apo_psk | length >= 24
+        fail_msg: "Missing a local setting or the vault key (vault_apo_psk)."
+
+  tasks:
+    - name: Phase 1 - IKE profile (AES-256, SHA-256, DH group 14, 8 hours)
+      community.routeros.command:
+        commands:
+          - >-
+            :if ([:len [/ip ipsec profile find where name={{ ike_profile }}]] = 0) do={
+            /ip ipsec profile add name={{ ike_profile }} hash-algorithm=sha256
+            enc-algorithm=aes-256 dh-group=modp2048 lifetime=8h nat-traversal=no
+            dpd-interval=30s dpd-maximum-failures=4;
+            :put ("ADD" . "ED") } else={ :put EXISTS }
+      register: result
+      changed_when: "result.stdout is defined and 'ADDED' in result.stdout[0]"
+
+    - name: Phase 2 - proposal (AES-256, SHA-256, PFS group 14, 1 hour)
+      community.routeros.command:
+        commands:
+          - >-
+            :if ([:len [/ip ipsec proposal find where name={{ ipsec_proposal }}]] = 0) do={
+            /ip ipsec proposal add name={{ ipsec_proposal }} auth-algorithms=sha256
+            enc-algorithms=aes-256-cbc pfs-group=modp2048 lifetime=1h;
+            :put ("ADD" . "ED") } else={ :put EXISTS }
+      register: result
+      changed_when: "result.stdout is defined and 'ADDED' in result.stdout[0]"
+
+    - name: Peer - the HQ Sophos, IKEv2
+      community.routeros.command:
+        commands:
+          - >-
+            :if ([:len [/ip ipsec peer find where name={{ ipsec_peer }}]] = 0) do={
+            /ip ipsec peer add name={{ ipsec_peer }} address={{ sophos_wan_ip }}/32
+            local-address={{ apo_wan_ip }} profile={{ ike_profile }}
+            exchange-mode=ike2 send-initial-contact=yes;
+            :put ("ADD" . "ED") } else={ :put EXISTS }
+      register: result
+      changed_when: "result.stdout is defined and 'ADDED' in result.stdout[0]"
+
+    - name: Identity - the preshared key from the vault
+      community.routeros.command:
+        commands:
+          - >-
+            :if ([:len [/ip ipsec identity find where peer={{ ipsec_peer }}]] = 0) do={
+            /ip ipsec identity add peer={{ ipsec_peer }}
+            auth-method=pre-shared-key secret={{ vault_apo_psk }};
+            :put ("ADD" . "ED") } else={ :put EXISTS }
+      register: result
+      changed_when: "result.stdout is defined and 'ADDED' in result.stdout[0]"
+      no_log: "{{ hide_secrets }}"
+
+    - name: Policies - which traffic goes into the tunnel
+      community.routeros.command:
+        commands:
+          - >-
+            :if ([:len [/ip ipsec policy find where src-address={{ apo_lan }}
+            and dst-address={{ item }} and peer={{ ipsec_peer }}]] = 0) do={
+            /ip ipsec policy add src-address={{ apo_lan }} dst-address={{ item }}
+            peer={{ ipsec_peer }} tunnel=yes action=encrypt level=require
+            ipsec-protocols=esp proposal={{ ipsec_proposal }}
+            sa-src-address={{ apo_wan_ip }} sa-dst-address={{ sophos_wan_ip }}
+            comment=ansible-managed;
+            :put ("ADD" . "ED") } else={ :put EXISTS }
+      loop: "{{ remote_networks }}"
+      register: result
+      changed_when: "result.stdout is defined and 'ADDED' in result.stdout[0]"
+
+    - name: NAT - do not rewrite tunnel traffic
+      community.routeros.command:
+        commands:
+          - >-
+            :if ([:len [/ip firewall nat find comment={{ nat_tag }}]] = 0) do={
+            /ip firewall nat add chain=srcnat action=accept
+            src-address={{ apo_lan }} dst-address={{ item }}
+            place-before=0 comment={{ nat_tag }};
+            :put ("ADD" . "ED") } else={ :put EXISTS }
+      loop: "{{ remote_networks }}"
+      vars:
+        nat_tag: "ansible-apo-nat-{{ item | replace('/', '-') }}"
+      register: result
+      changed_when: "result.stdout is defined and 'ADDED' in result.stdout[0]"
+      
+    - name: Count what really exists on the router (read only)
+      community.routeros.command:
+        commands:
+          - ':put [:len [/ip ipsec profile find where name={{ ike_profile }}]]'
+          - ':put [:len [/ip ipsec proposal find where name={{ ipsec_proposal }}]]'
+          - ':put [:len [/ip ipsec peer find where name={{ ipsec_peer }}]]'
+          - ':put [:len [/ip ipsec identity find where peer={{ ipsec_peer }}]]'
+          - ':put [:len [/ip ipsec policy find where peer={{ ipsec_peer }}]]'
+          - ':put [:len [/ip firewall nat find comment~"ansible-apo-nat"]]'
+      register: counts
+      changed_when: false
+
+    - name: Fail loudly if anything is missing
+      ansible.builtin.assert:
+        that:
+          - numbers == ['1', '1', '1', '1', '3', '3']
+        fail_msg: "Router state is {{ numbers }} (profile, proposal, peer, identity, policies, tagged NAT rules). Expected 1, 1, 1, 1, 3, 3."
+        success_msg: "Profile, proposal, peer, identity, 3 policies and 3 tagged NAT rules all exist."
+      vars:
+        numbers: "{{ counts.stdout | map('trim') | map('regex_replace', '(?s)^.*\\s', '') | list }}"
+
+    - name: Give the Sophos a few seconds to bring the tunnel up
+      ansible.builtin.pause:
+        seconds: 20
+
+    - name: Read back the tunnel state (read only)
+      community.routeros.command:
+        commands:
+          - /ip ipsec active-peers print without-paging
+          - /ip ipsec installed-sa print without-paging
+          - /ip ipsec policy print without-paging
+      register: state
+      changed_when: false
+
+    - name: Show it
+      ansible.builtin.debug:
+        var: state.stdout_lines
