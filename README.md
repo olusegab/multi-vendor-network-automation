@@ -26,7 +26,7 @@ AWS gets **one** Site-to-Site VPN, to the HQ Sophos firewall. Each store gets it
 | Architecture diagram and documentation | Done |
 | Sophos: network objects and IPsec connection (Ansible) | Done for the AWS tunnel and one pilot store |
 | MikroTik: store side of the tunnel (Ansible) | Done for one pilot store, safe to re-run |
-| AWS range added to the store connections and firewall rules on the Sophos | Planned |
+| AWS range added to the store connections and firewall rules on the Sophos | Done |
 | Rollout to the remaining stores from the inventory, one key per store | Planned |
 | EC2 instance and security group, ping test from AWS to a store server | Planned |
 | CI checks (`terraform fmt`, `validate`, `ansible-lint`) | Planned |
