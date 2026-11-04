@@ -16,7 +16,7 @@ This project connects an AWS VPC to an enterprise HQ firewall and a MikroTik-bas
 | AWS | Customer gateway | AWS's record of the HQ Sophos firewall (static public IP) |
 | HQ | Sophos XGS 2300 | The hub: terminates the AWS tunnel and every store tunnel |
 | HQ | LAN1 `192.168.0.0/24`, LAN2 `172.16.0.0/16` | HQ networks reachable from AWS and from the stores |
-| Stores | MikroTik router per site (RouterOS 6) | Policy-based IPsec tunnel to HQ, including the AWS range |
+| Stores | MikroTik router per site (RouterOS 6) | Route-based IPsec tunnel to HQ, including the AWS range |
 | Control plane | Terraform and Ansible | Build and configure everything from Git |
 
 ## Traffic path
